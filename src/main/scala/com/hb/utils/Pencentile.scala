@@ -6,6 +6,10 @@ package com.hb.utils
 
 object Pencentile {
 
+  /**
+    * @param xs 输入数组
+    * @return 快速排序后的数组
+    */
   def quickSort(xs: Array[Double]): Array[Double] = {
     if (xs.length <= 1)
       xs
@@ -19,9 +23,12 @@ object Pencentile {
     }
   }
 
-  def percentile(it: TraversableOnce[Double], p: Double) = {
+  /**
+    * @param arr 输入数组
+    * @return p 百分位
+    */
+  def percentile(arr: Array[Double], p: Double) = {
     if (p > 1 || p < 0) throw new IllegalArgumentException("p must be in [0,1]")
-    val arr = it.toArray
     val sorted = quickSort(arr)
     val f = (sorted.length + 1) * p
     val i = f.toInt

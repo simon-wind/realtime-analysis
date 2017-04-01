@@ -1,8 +1,6 @@
 package com.hb.analysis
 
-import java.io._
 import java.util
-import java.util.Properties
 
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.Seconds
@@ -10,39 +8,41 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.Logger
 import org.apache.log4j.PropertyConfigurator
-
 import com.clearspring.analytics.stream.cardinality.HyperLogLogPlus
 import consumer.kafka.ProcessedOffsetManager
 import consumer.kafka.ReceiverLauncher
-
 import com.hb.falcon.{Pack, Sender}
-import com.hb.utils.Pencentile
+import com.hb.utils.{ConfigProvider, IPMapping, IpToInt, Pencentile,LocationInfo}
 
 /**
   * Created by Simon on 2017/2/23.
   */
 
 object NginxFlowAnalysis {
-  def getValueByKey(key: String) = {
-    try {
-      val properties = new Properties()
-      val fs = new File("conf/conf.properties")
-      val reader = new BufferedReader(new FileReader(fs))
-      properties.load(reader)
-      properties.get(key)
-    }
-    catch {
-      case e: FileNotFoundException => {
-        println("conf.propertoies file does not exists")
-        null
-      }
-      case e: IOException => {
-        println("IO error while loading conf.properties")
-        null
-      }
-    }
-  }
+  private var ssc : StreamingContext = null
+  //接口参数
+  private val endpoint = "ngxmaster"
+  private val step = 60
+  private val counterType = "GAUGE"
+  private val tags = "_Minute"
+  private val ip_file = "/ipCity.properties"
 
+  //计算指标
+  private val metric1 = "pv_min"
+  private val metric2 = "errcounts"
+  private val metric3 = "errs"
+  private val metric4 = "uv_Min"
+  private val metric5 = "pen99th"
+  private val metric6 = "pen95th"
+  private val metric7 = "pen75th"
+  private val metric8 = "pen50th"
+  private val metric9 = "uvTotal"
+
+  val logger = Logger.getLogger(NginxFlowAnalysis.getClass.getName)
+
+  /**
+    * 更新HyperLogLogPlus对象
+    */
   val updateCardinal = (values: Seq[String], state: Option[HyperLogLogPlus]) => {
     if (state.nonEmpty) {
       val hll = state.get
@@ -55,24 +55,26 @@ object NginxFlowAnalysis {
     }
   }
 
+
+
   def main(args: Array[String]): Unit = {
     if (args.length != 2) {
-      println("Usage: spark-2.0.0/bin/spark-submit --class com.hb.analysis.NginxFlowAnalysis --num-executors 4 --executor-memory 8G --executor-cores 4 --driver-memory 1000M  log-analysis.jar " )
+      println("Usage: spark-2.0.0/bin/spark-submit --class com.hb.analysis.NginxFlowAnalysis --master yarn --num-executors 4 --executor-memory 8G --executor-cores 4 --driver-memory 1000M  log-analysis.jar --files conf/log4j.properties --files conf/conf.properties" )
+      System.exit(0)
     }
 
-    val logger = Logger.getLogger(NginxFlowAnalysis.getClass.getName)
-    PropertyConfigurator.configure("conf/log4j.properties")
+    PropertyConfigurator.configure(args(0))
 
 //    System.setProperty("hadoop.home.dir", "C:\\Program Files (x86)\\Hadoop")
-
-    val master = getValueByKey("master").toString
-    val zkHosts = getValueByKey("zkAddress").toString.split(",").map(line => line.split(":")(0)).mkString(",")
-    val zkPort = getValueByKey("zkAddress").toString.split(",")(0).split(":")(1)
-    val zkAddress = getValueByKey("zkAddress").toString
-    val group = getValueByKey("group").toString
-    val url = getValueByKey("falconUrl").toString
-    val topic = getValueByKey("topics").toString
-    val numberOfReceivers = getValueByKey("numberOfReceivers").toString.toInt
+    val properties = new ConfigProvider(args(1))
+    val master = properties.getValueByKey("master").toString
+    val zkHosts = properties.getValueByKey("zkAddress").toString.split(",").map(line => line.split(":")(0)).mkString(",")
+    val zkPort = properties.getValueByKey("zkAddress").toString.split(",")(0).split(":")(1)
+    val zkAddress = properties.getValueByKey("zkAddress").toString
+    val group = properties.getValueByKey("group").toString
+    val url = properties.getValueByKey("falconUrl").toString
+    val topic = properties.getValueByKey("topics").toString
+    val numberOfReceivers = properties.getValueByKey("numberOfReceivers").toString.toInt
 
     logger.info("master address is : " + master)
     logger.info("zkHosts is : " + zkHosts)
@@ -83,8 +85,8 @@ object NginxFlowAnalysis {
     logger.info("consumer topic  is : " + topic)
     logger.info("numberOfReceivers  is : " + numberOfReceivers)
 
-    val splitColumns = getValueByKey("splitColumns").toString
-    val percentileNums = getValueByKey("percentileNums").toString
+    val splitColumns = properties.getValueByKey("splitColumns").toString
+    val percentileNums = properties.getValueByKey("percentileNums").toString
 
 
     //split提取ip,请求api,状态码,设备id,时延五个维度的数据
@@ -100,20 +102,6 @@ object NginxFlowAnalysis {
     val percentile3 = percentileNums.split(",")(2).toFloat
     val percentile4 = percentileNums.split(",")(3).toFloat
 
-    //计算指标以及open-falcon接口相关参数
-    val endpoint = "ngxmaster"
-    val step = 60
-    val counterType = "GAUGE"
-    val tags = "_Minute"
-    val metric1 = "pv_min"
-    val metric2 = "errcounts"
-    val metric3 = "errs"
-    val metric4 = "uv_Min"
-    val metric5 = "pen99th"
-    val metric6 = "pen95th"
-    val metric7 = "pen75th"
-    val metric8 = "pen50th"
-    val metric9 = "uvTotal"
 
     val kafkaProperties: Map[String, String] =
       Map("zookeeper.hosts" -> zkHosts,
@@ -131,8 +119,11 @@ object NginxFlowAnalysis {
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     logger.info("initializing spark config")
 
-    val ssc = new StreamingContext(conf, Seconds(60))
+    ssc = new StreamingContext(conf, Seconds(60))
     logger.info("starting spark streaming job")
+
+    val ipMap = IPMapping.getIpMapping(ip_file)
+    val ipMapBroadCast = ssc.sparkContext.broadcast(ipMap)
 
     ssc.checkpoint("analysisCheckpoint")
 
@@ -148,12 +139,10 @@ object NginxFlowAnalysis {
       .map(line => line.split("\\^\\^A"))
       .map(line => Array(line(column1), line(column2).split(" ")(1), line(column3), line(column4), line(column5)))
 
-    filterMessages.cache()
-    //    import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK_SER
-    //    filterMessages.persist(MEMORY_AND_DISK_SER)
+    import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK
+    filterMessages.persist(MEMORY_AND_DISK)
 
     filterMessages.foreachRDD(rdd => {
-
       val ls = new util.ArrayList[Any]
       /**
         * 计算每分钟请求数
@@ -237,6 +226,10 @@ object NginxFlowAnalysis {
       }
     }
     )
+
+    filterMessages.map(x => IpToInt.ip2Int(x(0)))
+      .map(x => LocationInfo.findLocation(ipMapBroadCast.value,x)).map(x => (x,1)).reduceByKey(_+_).print()
+
     //消费完成手动提交zookeeper的offset
     ProcessedOffsetManager.persists(partitonOffset_stream, props)
     logger.info("persist current offset in zookeeper cluster")
