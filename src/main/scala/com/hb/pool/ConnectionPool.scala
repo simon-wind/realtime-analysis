@@ -1,4 +1,4 @@
-package com.hb.Pool
+package com.hb.pool
 
 import java.io.{File, FileInputStream, InputStream}
 import java.util.Properties

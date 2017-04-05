@@ -13,8 +13,8 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.Logger
 import org.apache.log4j.PropertyConfigurator
 import com.clearspring.analytics.stream.cardinality.HyperLogLogPlus
-import com.hb.Model.{IPMapping, IpToLong, LocationInfo}
-import com.hb.Pool.ConnectionPool
+import com.hb.model.{IPMapping, IpToLong, LocationInfo}
+import com.hb.pool.ConnectionPool
 import consumer.kafka.ProcessedOffsetManager
 import consumer.kafka.ReceiverLauncher
 import com.hb.falcon.{Pack, Sender}

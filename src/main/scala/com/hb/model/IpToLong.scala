@@ -1,4 +1,4 @@
-package com.hb.Model
+package com.hb.model
 
 import java.net.InetAddress
 
