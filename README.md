@@ -2,7 +2,7 @@
 实时分析nginx日志，计算pv，uv等指标
 
 
-数据流为 flume-kafaka-sparkstreaming-http接口传送到open-falcon接口
+数据流为 flume-kafka-spark streaming-http接口传送到open-falcon
 
 时延的百分位指标在conf.properties文件里面可以自己配置
 
@@ -22,7 +22,8 @@
         
         6: 99th,95th,75,50th的百分位时延
         
-    还可以统计各省用户数，异常请求数等，暂时没弄了。
+        7: 每省用户数
+  
     
     缺点:
     
