@@ -1,7 +1,6 @@
 package producer
 
-import com.hb.utils.IPRecord
-import com.hb.utils.IPMapping
+import com.hb.Model.{IPMapping, IPRecord}
 
 /**
   * Created by Simon on 2017/3/30.

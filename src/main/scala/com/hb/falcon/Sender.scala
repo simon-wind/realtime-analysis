@@ -13,7 +13,11 @@ import org.apache.http.entity.StringEntity
   */
 
 object Sender {
-
+  /**
+    * 数据发送到监控平台
+    * @param dataList  json字符串组成的ArrayList
+    * @param url open-falcon agent接口
+    */
   def sender (dataList:util.ArrayList[Any], url: String) = {
     val post = new HttpPost(url)
     post.setEntity(new StringEntity(dataList.toString))

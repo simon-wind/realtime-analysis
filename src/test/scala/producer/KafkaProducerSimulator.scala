@@ -19,6 +19,17 @@ import scala.util.Random
 
 object KafkaProducerSimulator {
 
+  def getRandomString(length : Int){
+    val str="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    val random=new Random()
+    val sb=new StringBuffer()
+     for (i <- (0 until length)){
+      val number = random.nextInt(62)
+      sb.append(str.charAt(number))
+    }
+    sb.toString()
+  }
+
   def main(args: Array[String]) {
 
     val Array(brokers, topic, messagesPerSec) = Array("192.168.2.245:9092", "nginx", "100")
@@ -33,22 +44,12 @@ object KafkaProducerSimulator {
 
     val producer = new KafkaProducer[String, String](props)
 
-    def getRandomString(length : Int){
-      val str="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-      val random=new Random()
-      val sb=new StringBuffer()
-      for (0 <- length){
-        val number = random.nextInt(62)
-        sb.append(str.charAt(number))
-      }
-      sb.toString()
-    }
     // Send some messages
     while (true) {
       (1 to messagesPerSec.toInt).foreach { messageNum =>
         val appendString = getRandomString(3)
         val random = Math.random()
-        val str = s"113.77.233.31 ^^A 29/Mar/2017:19:28:44 +0800 ^^A GET /api/User/UpdateUserInfo  ^^A - ^^A 200 ^^A 692 ^^A - ^^A ZZZZZZZZZZZZZZZZZZZZZZZZZZZZ+${appendString} ^^A PE-TL20 ^^A Huawei ^^A deviceid/zzzzzzzzzzzzzzzzzzzz  ^^A - ^^A ${random} ^^A ${random} "
+        val str = "183.0.227.212 ^^A 05/Apr/2017:17:12:59 +0800 ^^A GET /api/Message/GetUserMessageNotify HTTP/1.1 ^^A - ^^A 200 ^^A 166 ^^A - ^^A 7D9A692FA70A158C84E4FF61BC8A2490 ^^A iPhone6plus ^^A - ^^A deviceid/d41d8cd98f00b204e9800998ecf8427e4e8fe389 os/iOS manufacturer/Apple appversion/3.9.7 ip/192.168.9.102 systemversion/9.3.5 idfa/F6F2FBD8-17AA-4FCF-BD15-4AF2C8B5336E signalType/4 beta/0 ^^A - ^^A 0.163 ^^A 0.163"
         val message = new ProducerRecord[String, String](topic, null, str)
         producer.send(message)
       }

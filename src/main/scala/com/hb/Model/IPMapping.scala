@@ -1,7 +1,6 @@
-package com.hb.utils
+package com.hb.Model
 
 import java.io.{BufferedReader, IOException, InputStreamReader}
-import java.util.ArrayList
 
 import org.apache.commons.lang.StringUtils
 

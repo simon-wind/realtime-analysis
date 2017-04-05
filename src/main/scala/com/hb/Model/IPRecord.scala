@@ -1,4 +1,4 @@
-package com.hb.utils
+package com.hb.Model
 
 /**
   * Created by Simon on 2017/3/30.

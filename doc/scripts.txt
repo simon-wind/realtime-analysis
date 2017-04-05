@@ -1,0 +1,9 @@
+//每省用户数
+create table uv_province (
+time DATETIME,
+province varchar(20),
+uv int,
+id INT(20) not null AUTO_INCREMENT,
+primary key (id)
+) charset=utf8 auto_increment=1;
+

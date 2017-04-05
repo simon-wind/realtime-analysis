@@ -1,18 +1,24 @@
 package com.hb.analysis
 
+import java.io.{File, FileInputStream}
+import java.sql.Timestamp
+import java.text.SimpleDateFormat
 import java.util
+import java.util.{Calendar, Date, Properties}
 
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkFiles}
 import org.apache.spark.streaming.Seconds
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.Logger
 import org.apache.log4j.PropertyConfigurator
 import com.clearspring.analytics.stream.cardinality.HyperLogLogPlus
+import com.hb.Model.{IPMapping, IpToLong, LocationInfo}
+import com.hb.Pool.ConnectionPool
 import consumer.kafka.ProcessedOffsetManager
 import consumer.kafka.ReceiverLauncher
 import com.hb.falcon.{Pack, Sender}
-import com.hb.utils.{ConfigProvider, IPMapping, IpToInt, Pencentile,LocationInfo}
+import com.hb.utils.Pencentile
 
 /**
   * Created by Simon on 2017/2/23.
@@ -59,34 +65,37 @@ object NginxFlowAnalysis {
 
   def main(args: Array[String]): Unit = {
     if (args.length != 2) {
-      println("Usage: spark-2.0.0/bin/spark-submit --class com.hb.analysis.NginxFlowAnalysis --master yarn --num-executors 4 --executor-memory 8G --executor-cores 4 --driver-memory 1000M  log-analysis.jar --files conf/log4j.properties --files conf/conf.properties" )
+      println("Usage: spark-2.0.0/bin/spark-submit --class com.hb.analysis.NginxFlowAnalysis --master yarn --num-executors 4 --executor-memory 8G --executor-cores 4 --driver-memory 1000M  log-analysis.jar --files conf/log4j.properties --files conf/conf.properties --files conf/c3p0.properties" )
       System.exit(0)
     }
 
-    PropertyConfigurator.configure(args(0))
+    PropertyConfigurator.configure("conf/log4j.properties")
 
 //    System.setProperty("hadoop.home.dir", "C:\\Program Files (x86)\\Hadoop")
-    val properties = new ConfigProvider(args(1))
-    val master = properties.getValueByKey("master").toString
-    val zkHosts = properties.getValueByKey("zkAddress").toString.split(",").map(line => line.split(":")(0)).mkString(",")
-    val zkPort = properties.getValueByKey("zkAddress").toString.split(",")(0).split(":")(1)
-    val zkAddress = properties.getValueByKey("zkAddress").toString
-    val group = properties.getValueByKey("group").toString
-    val url = properties.getValueByKey("falconUrl").toString
-    val topic = properties.getValueByKey("topics").toString
-    val numberOfReceivers = properties.getValueByKey("numberOfReceivers").toString.toInt
+    //获取应用相关配置
+    val in= new FileInputStream(new File("conf/conf.properties"))
+    val properties = new Properties
+    properties.load(in)
 
+    val master = properties.getProperty("master")
     logger.info("master address is : " + master)
+    val zkHosts = properties.getProperty("zkAddress").split(",").map(line => line.split(":")(0)).mkString(",")
     logger.info("zkHosts is : " + zkHosts)
+    val zkPort = properties.getProperty("zkAddress").split(",")(0).split(":")(1)
     logger.info("zkPort is : " + zkPort)
+    val zkAddress = properties.getProperty("zkAddress")
     logger.info("zkAddress is : " + zkAddress)
+    val group = properties.getProperty("group")
     logger.info("consumer group id is : " + group)
-    logger.info("falcon http interface address is : " + url)
+    val url = properties.getProperty("falconUrl")
+    logger.info("falcon http interface  is : " + url)
+    val topic = properties.getProperty("topics")
     logger.info("consumer topic  is : " + topic)
+    val numberOfReceivers = properties.getProperty("numberOfReceivers").toInt
     logger.info("numberOfReceivers  is : " + numberOfReceivers)
 
-    val splitColumns = properties.getValueByKey("splitColumns").toString
-    val percentileNums = properties.getValueByKey("percentileNums").toString
+    val splitColumns = properties.getProperty("splitColumns")
+    val percentileNums = properties.getProperty("percentileNums")
 
 
     //split提取ip,请求api,状态码,设备id,时延五个维度的数据
@@ -122,6 +131,12 @@ object NginxFlowAnalysis {
     ssc = new StreamingContext(conf, Seconds(60))
     logger.info("starting spark streaming job")
 
+    val inC3p0 = new FileInputStream(new File("conf/c3p0.properties"))
+    val propC3p0 = new Properties()
+    propC3p0.load(inC3p0)
+    val propC3p0BroadCast = ssc.sparkContext.broadcast(propC3p0)
+
+
     val ipMap = IPMapping.getIpMapping(ip_file)
     val ipMapBroadCast = ssc.sparkContext.broadcast(ipMap)
 
@@ -130,6 +145,7 @@ object NginxFlowAnalysis {
     val messages = ReceiverLauncher.launch(ssc, props, numberOfReceivers, StorageLevel.MEMORY_ONLY)
     val partitonOffset_stream = ProcessedOffsetManager.getPartitionOffset(messages, props)
     logger.info("fetching current offset from zookeeper cluster")
+    ProcessedOffsetManager.persists(partitonOffset_stream, props)
 
     /**
       * 分三个JOB计算指标。
@@ -138,6 +154,7 @@ object NginxFlowAnalysis {
       .filter(s => s.contains("GET") || s.contains("POST"))
       .map(line => line.split("\\^\\^A"))
       .map(line => Array(line(column1), line(column2).split(" ")(1), line(column3), line(column4), line(column5)))
+    println("test")
 
     import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK
     filterMessages.persist(MEMORY_AND_DISK)
@@ -176,7 +193,6 @@ object NginxFlowAnalysis {
       ls.add(uniqueVisitorJson)
 
       Sender.sender(ls,url)
-
     }
     )
 
@@ -227,8 +243,39 @@ object NginxFlowAnalysis {
     }
     )
 
-    filterMessages.map(x => IpToInt.ip2Int(x(0)))
-      .map(x => LocationInfo.findLocation(ipMapBroadCast.value,x)).map(x => (x,1)).reduceByKey(_+_).print()
+    /**
+      * 各省用户数（笛卡尔乘积比较耗cpu，暂时没想到好方法）
+      */
+
+    filterMessages.map(x => IpToLong.IPv4ToLong(x(0).trim)).map(x => (x,1)).reduceByKey(_+_)
+      .map(x => (LocationInfo.findLocation(ipMapBroadCast.value,x._1),x._2))
+      .reduceByKey(_+_) foreachRDD( rdd => {
+      rdd.foreachPartition { data =>
+        if (data != null) {
+          val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
+          conn.setAutoCommit(false)
+          val calendar = Calendar.getInstance();
+          val now = calendar.getTime
+          val currentTimestamp = new java.sql.Timestamp(calendar.getTime().getTime())
+
+          val sql = "insert into uv_province(time,province,uv) values (?,?,?)"
+          val preparedStatement = conn.prepareStatement(sql)
+          data.foreach(r => {
+            preparedStatement.setTimestamp(1, currentTimestamp)
+            preparedStatement.setString(2, r._1.toString)
+            preparedStatement.setInt(3, r._2)
+            preparedStatement.addBatch()
+          })
+
+          preparedStatement.executeBatch()
+          conn.commit()
+          preparedStatement.clearBatch()
+          conn.close()
+        }
+      }
+    }
+
+    )
 
     //消费完成手动提交zookeeper的offset
     ProcessedOffsetManager.persists(partitonOffset_stream, props)
