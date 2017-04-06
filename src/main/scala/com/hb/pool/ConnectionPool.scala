@@ -1,17 +1,14 @@
 package com.hb.pool
 
-import java.io.{File, FileInputStream, InputStream}
 import java.util.Properties
 
 import com.mchange.v2.c3p0.ComboPooledDataSource
-import org.apache.spark.SparkFiles
 
 /**
   * Created by Simon on 2017/4/5.
   */
 class ConnectionPool private(prop : Properties) extends Serializable{
   private val cpds:ComboPooledDataSource = new ComboPooledDataSource(true)
-  private var in : InputStream = null
   try {
     cpds.setJdbcUrl(prop.getProperty("jdbcUrl"))
     cpds.setDriverClass(prop.getProperty("driverClass"))

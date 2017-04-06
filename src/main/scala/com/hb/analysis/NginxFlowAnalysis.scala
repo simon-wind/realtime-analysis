@@ -64,16 +64,16 @@ object NginxFlowAnalysis {
 
 
   def main(args: Array[String]): Unit = {
-    if (args.length != 2) {
-      println("Usage: spark-2.0.0/bin/spark-submit --class com.hb.analysis.NginxFlowAnalysis --master yarn --num-executors 4 --executor-memory 8G --executor-cores 4 --driver-memory 1000M  log-analysis.jar --files conf/log4j.properties --files conf/conf.properties --files conf/c3p0.properties" )
+    if (args.length != 3) {
+      println("Usage: spark-2.0.0/bin/spark-submit --class com.hb.analysis.NginxFlowAnalysis --master yarn --num-executors 4 --executor-memory 8G --executor-cores 4 --driver-memory 1000M  log-analysis.jar  conf/log4j.properties  conf/conf.properties  conf/c3p0.properties" )
       System.exit(0)
     }
 
-    PropertyConfigurator.configure("conf/log4j.properties")
+    PropertyConfigurator.configure(args(0))
 
 //    System.setProperty("hadoop.home.dir", "C:\\Program Files (x86)\\Hadoop")
     //获取应用相关配置
-    val in= new FileInputStream(new File("conf/conf.properties"))
+    val in= new FileInputStream(new File(args(1)))
     val properties = new Properties
     properties.load(in)
 
@@ -91,9 +91,10 @@ object NginxFlowAnalysis {
     logger.info("falcon http interface  is : " + url)
     val topic = properties.getProperty("topics")
     logger.info("consumer topic  is : " + topic)
-    val numberOfReceivers = properties.getProperty("numberOfReceivers").toInt
-    logger.info("numberOfReceivers  is : " + numberOfReceivers)
 
+    val numberOfReceivers = properties.getProperty("numberOfReceivers").toInt
+    val abnormalVisitThreshold = properties.getProperty("abnormalVisitThreshold").toInt
+    val aggregateProvinceFlag = properties.getProperty("aggregateProvinceFlag").toBoolean
     val splitColumns = properties.getProperty("splitColumns")
     val percentileNums = properties.getProperty("percentileNums")
 
@@ -124,14 +125,13 @@ object NginxFlowAnalysis {
     kafkaProperties foreach { case (key, value) => props.put(key, value) }
 
     val conf = new SparkConf().setAppName("NginxPerformanceMonitor")
-      .setMaster(master)
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     logger.info("initializing spark config")
 
     ssc = new StreamingContext(conf, Seconds(60))
     logger.info("starting spark streaming job")
 
-    val inC3p0 = new FileInputStream(new File("conf/c3p0.properties"))
+    val inC3p0 = new FileInputStream(new File(args(2)))
     val propC3p0 = new Properties()
     propC3p0.load(inC3p0)
     val propC3p0BroadCast = ssc.sparkContext.broadcast(propC3p0)
@@ -148,13 +148,12 @@ object NginxFlowAnalysis {
     ProcessedOffsetManager.persists(partitonOffset_stream, props)
 
     /**
-      * 分三个JOB计算指标。
+      * 分多个JOB计算指标。
       */
     val filterMessages = messages.map { x => new String(x.getPayload) }
       .filter(s => s.contains("GET") || s.contains("POST"))
       .map(line => line.split("\\^\\^A"))
       .map(line => Array(line(column1), line(column2).split(" ")(1), line(column3), line(column4), line(column5)))
-    println("test")
 
     import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK
     filterMessages.persist(MEMORY_AND_DISK)
@@ -179,10 +178,9 @@ object NginxFlowAnalysis {
       /**
         * 计算每分钟不同错误请求数
         */
-      val diffErrors = errRecords.map(x => (x(2), 1)).reduceByKey(_+_).collect()
+      val diffErrors = errRecords.map(x => (x(2).trim.toInt, 1)).reduceByKey(_+_).collect()
       diffErrors.foreach{ x =>
-        println("errrrecords key = " + x._1 + "value = " + x._2)
-        ls.add(Pack.pack(endpoint, metric3 + x._1.trim, step, x._2.toString.toDouble, counterType,tags))
+        ls.add(Pack.pack(endpoint, metric3 + x._1.toString, step, x._2.toDouble, counterType,tags))
       }
 
       /**
@@ -192,7 +190,47 @@ object NginxFlowAnalysis {
       val uniqueVisitorJson = Pack.pack(endpoint, metric4, step, uniqueVisitor, counterType,tags)
       ls.add(uniqueVisitorJson)
 
+      //输出给open-falcon agent
       Sender.sender(ls,url)
+
+      //保存到数据库
+      val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
+      conn.setAutoCommit(false)
+
+      val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+      val currentTimestamp = sdf.format(new Date())
+
+      val sql = "insert into requests_minute(time,pv_minute,errs_minute,errs_400,errs_404,errs_405,errs_408,errs_499,errs_502,errs_503,uv_minute) values (?,?,?,?,?,?,?,?,?,?,?)"
+      val preparedStatement = conn.prepareStatement(sql)
+      preparedStatement.setString(1, currentTimestamp)
+      preparedStatement.setLong(2, counts)
+      preparedStatement.setLong(3, errCounts)
+
+      diffErrors.foreach{ errs => {
+        errs._1.toInt match {
+          case 400  => preparedStatement.setLong(4, errs._2)
+          case 404  => preparedStatement.setLong(5, errs._2)
+          case 405  => preparedStatement.setLong(6, errs._2)
+          case 408  => preparedStatement.setLong(7, errs._2)
+          case 499  => preparedStatement.setLong(8, errs._2)
+          case 502  => preparedStatement.setLong(9, errs._2)
+          case 503  => preparedStatement.setLong(10, errs._2)
+        }
+      }
+      }
+      val errColumnMap : Map[Int,Int] = Map (400 -> 4, 404 -> 5, 405 -> 6, 408 -> 7, 499 -> 8, 502 -> 9, 503 -> 10)
+      val errAllSet : Set[Int]= Set(400,404,405,408,499,502,503)
+      val errGotSet = diffErrors.map(x => x._1.toInt).toSet
+      val errLostSet = errAllSet -- errGotSet
+      for (key <- errLostSet) {preparedStatement.setLong(errColumnMap.get(key).get,0)}
+
+      preparedStatement.setLong(11, uniqueVisitor)
+
+      preparedStatement.addBatch()
+      preparedStatement.executeBatch()
+      conn.commit()
+      preparedStatement.clearBatch()
+      conn.close()
     }
     )
 
@@ -222,11 +260,32 @@ object NginxFlowAnalysis {
           ls.add(pen75thJson)
           ls.add(pen50thJson)
 
+          //发送给open-falcon agent
           Sender.sender(ls,url)
+          //保存到数据库
+          val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
+          conn.setAutoCommit(false)
 
-        } else {println("Do not have any latency records!")}
+          val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm")
+          val currentTimestamp = sdf.format(new Date())
+
+          val sql = "insert into latency(time,pen99th,pen95th,pen75th,pen50th) values (?,?,?,?,?)"
+          val preparedStatement = conn.prepareStatement(sql)
+          preparedStatement.setString(1, currentTimestamp)
+          preparedStatement.setDouble(2, pen99th)
+          preparedStatement.setDouble(3, pen95th)
+          preparedStatement.setDouble(4, pen75th)
+          preparedStatement.setDouble(5, pen50th)
+
+          preparedStatement.addBatch()
+          preparedStatement.executeBatch()
+          conn.commit()
+          preparedStatement.clearBatch()
+          conn.close()
+        }
       }
-    })
+    }
+    )
 
     /**
       * 总用户数UV，采用基数估计
@@ -238,30 +297,49 @@ object NginxFlowAnalysis {
           val ls = new util.ArrayList[Any]
           val uvTotalJson = Pack.pack(endpoint, metric9, step, x, counterType, tags)
           ls.add(uvTotalJson)
+          //发送给open-falcon agent
           Sender.sender(ls, url)
+
+          // 保存数据库
+          val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
+          conn.setAutoCommit(false)
+          val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+          val currentTimestamp = sdf.format(new Date())
+
+          val sql = "insert into uv_day(time,uv) values (?,?)"
+          val preparedStatement = conn.prepareStatement(sql)
+          preparedStatement.setString(1, currentTimestamp)
+          preparedStatement.setLong(2, x.toLong)
+          preparedStatement.addBatch()
+          preparedStatement.executeBatch()
+          conn.commit()
+          preparedStatement.clearBatch()
+          conn.close()
       }
     }
     )
 
-    /**
-      * 各省用户数（笛卡尔乘积比较耗cpu，暂时没想到好方法）
-      */
 
-    filterMessages.map(x => IpToLong.IPv4ToLong(x(0).trim)).map(x => (x,1)).reduceByKey(_+_)
-      .map(x => (LocationInfo.findLocation(ipMapBroadCast.value,x._1),x._2))
-      .reduceByKey(_+_) foreachRDD( rdd => {
-      rdd.foreachPartition { data =>
-        if (data != null) {
+    val ipRecords = filterMessages.map(x => (x(0),1)).reduceByKey(_+_)
+    ipRecords.persist(MEMORY_AND_DISK)
+
+    //下面的指标只保存在数据库
+    /**
+      * 异常访问IP
+      */
+    ipRecords.filter(_._2 > abnormalVisitThreshold).foreachRDD( rdd => {
+      rdd.foreachPartition{
+        data => {
           val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
           conn.setAutoCommit(false)
-          val calendar = Calendar.getInstance();
-          val now = calendar.getTime
-          val currentTimestamp = new java.sql.Timestamp(calendar.getTime().getTime())
 
-          val sql = "insert into uv_province(time,province,uv) values (?,?,?)"
+          val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+          val currentTimestamp = sdf.format(new Date())
+
+          val sql = "insert into abnormal_ip(time,ip,frequency) values (?,?,?)"
           val preparedStatement = conn.prepareStatement(sql)
           data.foreach(r => {
-            preparedStatement.setTimestamp(1, currentTimestamp)
+            preparedStatement.setString(1, currentTimestamp)
             preparedStatement.setString(2, r._1.toString)
             preparedStatement.setInt(3, r._2)
             preparedStatement.addBatch()
@@ -273,9 +351,42 @@ object NginxFlowAnalysis {
           conn.close()
         }
       }
+    })
+
+    /**
+      * 各省用户数（笛卡尔乘积比较耗cpu，暂时没想到好方法）
+      */
+    if (aggregateProvinceFlag) {
+      ipRecords.map(x => (IpToLong.IPv4ToLong(x._1.trim),x._2))
+        .map(x => (LocationInfo.findLocation(ipMapBroadCast.value,x._1),x._2))
+        .reduceByKey(_+_) foreachRDD( rdd => {
+        rdd.foreachPartition { data =>
+          if (data != null) {
+            val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
+            conn.setAutoCommit(false)
+
+            val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+            val currentTimestamp = sdf.format(new Date())
+
+            val sql = "insert into uv_province(time,province,uv) values (?,?,?)"
+            val preparedStatement = conn.prepareStatement(sql)
+            data.foreach(r => {
+              preparedStatement.setString(1, currentTimestamp)
+              preparedStatement.setString(2, r._1.toString)
+              preparedStatement.setInt(3, r._2)
+              preparedStatement.addBatch()
+            })
+
+            preparedStatement.executeBatch()
+            conn.commit()
+            preparedStatement.clearBatch()
+            conn.close()
+          }
+        }
+      }
+        )
     }
 
-    )
 
     //消费完成手动提交zookeeper的offset
     ProcessedOffsetManager.persists(partitonOffset_stream, props)
@@ -285,5 +396,6 @@ object NginxFlowAnalysis {
     ssc.awaitTermination()
   }
 }
+
 
 

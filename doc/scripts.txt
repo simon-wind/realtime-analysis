@@ -7,3 +7,41 @@ id INT(20) not null AUTO_INCREMENT,
 primary key (id)
 ) charset=utf8 auto_increment=1;
 
+//访问频次过高IP
+create table abnormal_ip (
+time DATETIME,
+ip varchar(20),
+frequency int,
+id INT(20) not null AUTO_INCREMENT,
+primary key (id)
+) charset=utf8 auto_increment=1;
+
+//请求响应相关指标
+create table requests_minute (
+time DATETIME,
+pv_minute int default 0 not null,
+errs_minute int default 0 not null,
+errs_400 int default 0 not null,
+errs_404 int default 0 not null,
+errs_405 int default 0 not null,
+errs_408 int default 0 not null,
+errs_499 int default 0 not null,
+errs_502 int default 0 not null,
+errs_503 int default 0 not null,
+uv_minute int default 0 not null
+) charset=utf8 auto_increment=1;
+
+//时延指标
+create table latency (
+time DATETIME,
+pen99th double,
+pen95th double,
+pen75th double,
+pen50th double
+) charset=utf8 auto_increment=1;
+
+//每天用户数
+create table uv_day (
+time DATETIME,
+uv int
+) charset=utf8 auto_increment=1;
