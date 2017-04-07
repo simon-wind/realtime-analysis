@@ -24,22 +24,20 @@
 
 package consumer.kafka;
 
-import java.io.Serializable;
-import java.util.LinkedList;
-import java.util.Map;
-
+import com.google.common.collect.ImmutableMap;
 import kafka.api.OffsetRequest;
 import kafka.javaapi.FetchResponse;
 import kafka.javaapi.consumer.SimpleConsumer;
 import kafka.javaapi.message.ByteBufferMessageSet;
 import kafka.message.Message;
 import kafka.message.MessageAndOffset;
-
 import org.apache.spark.streaming.receiver.Receiver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
+import java.io.Serializable;
+import java.util.LinkedList;
+import java.util.Map;
 
 @SuppressWarnings("serial")
 public class PartitionManager implements Serializable {

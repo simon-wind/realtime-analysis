@@ -18,21 +18,12 @@
 
 package consumer.kafka;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.apache.spark.streaming.scheduler.StreamingListener;
-import org.apache.spark.streaming.scheduler.StreamingListenerBatchCompleted;
-import org.apache.spark.streaming.scheduler.StreamingListenerBatchStarted;
-import org.apache.spark.streaming.scheduler.StreamingListenerBatchSubmitted;
-import org.apache.spark.streaming.scheduler.StreamingListenerOutputOperationCompleted;
-import org.apache.spark.streaming.scheduler.StreamingListenerOutputOperationStarted;
-import org.apache.spark.streaming.scheduler.StreamingListenerReceiverError;
-import org.apache.spark.streaming.scheduler.StreamingListenerReceiverStarted;
-import org.apache.spark.streaming.scheduler.StreamingListenerReceiverStopped;
+import org.apache.spark.streaming.scheduler.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import scala.Option;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ReceiverStreamListener implements StreamingListener {
     private static Logger LOG = LoggerFactory.getLogger(ReceiverStreamListener.class);

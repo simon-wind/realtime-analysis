@@ -18,13 +18,13 @@
 
 package consumer.kafka;
 
-import java.util.List;
-
 import scala.Tuple2;
 import scala.collection.JavaConversions;
 import scala.collection.Seq;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
+
+import java.util.List;
 
 
 public class ScalaUtil {

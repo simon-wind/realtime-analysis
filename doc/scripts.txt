@@ -1,5 +1,5 @@
 //每省用户数
-create table uv_province_test (
+create table uv_province (
 time DATETIME,
 province varchar(50),
 uv int,

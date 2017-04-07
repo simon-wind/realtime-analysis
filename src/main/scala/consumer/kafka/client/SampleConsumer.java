@@ -18,10 +18,9 @@
 
 package consumer.kafka.client;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Properties;
-
+import consumer.kafka.MessageAndMetadata;
+import consumer.kafka.ProcessedOffsetManager;
+import consumer.kafka.ReceiverLauncher;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.VoidFunction;
@@ -31,9 +30,9 @@ import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 
-import consumer.kafka.MessageAndMetadata;
-import consumer.kafka.ProcessedOffsetManager;
-import consumer.kafka.ReceiverLauncher;
+import java.io.Serializable;
+import java.util.List;
+import java.util.Properties;
 
 @SuppressWarnings("serial")
 public class SampleConsumer implements Serializable {

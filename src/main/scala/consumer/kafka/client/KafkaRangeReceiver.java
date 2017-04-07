@@ -18,22 +18,17 @@
 
 package consumer.kafka.client;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.Set;
-
+import consumer.kafka.*;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.receiver.Receiver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import consumer.kafka.KafkaConfig;
-import consumer.kafka.KafkaConsumer;
-import consumer.kafka.KafkaMessageHandler;
-import consumer.kafka.MessageAndMetadata;
-import consumer.kafka.ZkState;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 
 @SuppressWarnings("serial")
 public class KafkaRangeReceiver<E extends Serializable> extends Receiver<MessageAndMetadata<E>> {

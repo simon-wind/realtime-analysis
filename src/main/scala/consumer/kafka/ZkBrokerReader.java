@@ -24,10 +24,10 @@
 
 package consumer.kafka;
 
-import java.io.Serializable;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.Serializable;
 
 @SuppressWarnings("serial")
 public class ZkBrokerReader implements IBrokerReader, Serializable {

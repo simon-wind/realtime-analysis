@@ -1,24 +1,28 @@
 package com.hb.analysis
 
-import java.io.{File, FileInputStream}
-import java.sql.Timestamp
+import java.io.File
+import java.io.FileInputStream
+import java.util.ArrayList
+import java.util.Date
+import java.util.Properties
 import java.text.SimpleDateFormat
-import java.util
-import java.util.{Calendar, Date, Properties}
 
-import org.apache.spark.{SparkConf, SparkFiles}
-import org.apache.spark.streaming.Seconds
-import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.Logger
 import org.apache.log4j.PropertyConfigurator
+import org.apache.spark.SparkConf
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.streaming.Seconds
+import org.apache.spark.streaming.StreamingContext
+
+import consumer.kafka.ReceiverLauncher
+import consumer.kafka.ProcessedOffsetManager
 import com.clearspring.analytics.stream.cardinality.HyperLogLogPlus
+
+import com.hb.falcon.{Pack, Sender}
 import com.hb.model.{IPMapping, IpToLong, LocationInfo}
 import com.hb.pool.ConnectionPool
-import consumer.kafka.ProcessedOffsetManager
-import consumer.kafka.ReceiverLauncher
-import com.hb.falcon.{Pack, Sender}
 import com.hb.utils.Pencentile
+
 
 /**
   * Created by Simon on 2017/2/23.
@@ -43,6 +47,8 @@ object NginxFlowAnalysis {
   private val metric7 = "pen75th"
   private val metric8 = "pen50th"
   private val metric9 = "uvTotal"
+  private val metric10= "abnormalIPCounts"
+
 
   val logger = Logger.getLogger(NginxFlowAnalysis.getClass.getName)
 
@@ -71,7 +77,6 @@ object NginxFlowAnalysis {
 
     PropertyConfigurator.configure(args(0))
 
-//    System.setProperty("hadoop.home.dir", "C:\\Program Files (x86)\\Hadoop")
     //获取应用相关配置
     val in= new FileInputStream(new File(args(1)))
     val properties = new Properties
@@ -98,7 +103,6 @@ object NginxFlowAnalysis {
     val splitColumns = properties.getProperty("splitColumns")
     val percentileNums = properties.getProperty("percentileNums")
 
-
     //split提取ip,请求api,状态码,设备id,时延五个维度的数据
     val column1 = splitColumns.split(",")(0).toInt
     val column2 = splitColumns.split(",")(1).toInt
@@ -111,7 +115,6 @@ object NginxFlowAnalysis {
     val percentile2 = percentileNums.split(",")(1).toFloat
     val percentile3 = percentileNums.split(",")(2).toFloat
     val percentile4 = percentileNums.split(",")(3).toFloat
-
 
     val kafkaProperties: Map[String, String] =
       Map("zookeeper.hosts" -> zkHosts,
@@ -147,6 +150,7 @@ object NginxFlowAnalysis {
     logger.info("fetching current offset from zookeeper cluster")
     ProcessedOffsetManager.persists(partitonOffset_stream, props)
 
+
     /**
       * 分多个JOB计算指标。
       */
@@ -159,7 +163,7 @@ object NginxFlowAnalysis {
     filterMessages.persist(MEMORY_AND_DISK)
 
     filterMessages.foreachRDD(rdd => {
-      val ls = new util.ArrayList[Any]
+      val ls = new ArrayList[Any]
       /**
         * 计算每分钟请求数
         */
@@ -215,6 +219,7 @@ object NginxFlowAnalysis {
           case 499  => preparedStatement.setLong(8, errs._2)
           case 502  => preparedStatement.setLong(9, errs._2)
           case 503  => preparedStatement.setLong(10, errs._2)
+          case _    =>
         }
       }
       }
@@ -222,6 +227,7 @@ object NginxFlowAnalysis {
       val errAllSet : Set[Int]= Set(400,404,405,408,499,502,503)
       val errGotSet = diffErrors.map(x => x._1.toInt).toSet
       val errLostSet = errAllSet -- errGotSet
+      //如果记录里面没有相关错误码,error次数置0
       for (key <- errLostSet) {preparedStatement.setLong(errColumnMap.get(key).get,0)}
 
       preparedStatement.setLong(11, uniqueVisitor)
@@ -244,7 +250,7 @@ object NginxFlowAnalysis {
 
         val arrRecords = partitionRecords.toArray
         if (arrRecords.length > 0) {
-          val ls = new util.ArrayList[Any]()
+          val ls = new ArrayList[Any]()
           val pen99th = Pencentile.percentile(arrRecords, percentile1)
           val pen95th = Pencentile.percentile(arrRecords, percentile2)
           val pen75th = Pencentile.percentile(arrRecords, percentile3)
@@ -294,7 +300,7 @@ object NginxFlowAnalysis {
       .map(x => x._2.cardinality).foreachRDD(rdd => {
 
         rdd.foreach { x =>
-          val ls = new util.ArrayList[Any]
+          val ls = new ArrayList[Any]
           val uvTotalJson = Pack.pack(endpoint, metric9, step, x, counterType, tags)
           ls.add(uvTotalJson)
           //发送给open-falcon agent
@@ -323,11 +329,19 @@ object NginxFlowAnalysis {
     val ipRecords = filterMessages.map(x => (x(0),1)).reduceByKey(_+_)
     ipRecords.persist(MEMORY_AND_DISK)
 
-    //下面的指标只保存在数据库
+
     /**
-      * 异常访问IP
+      * 异常访问IP次数和记录  记录详情保存数据库，异常次数输出给open-falcon做前端展示
       */
     ipRecords.filter(_._2 > abnormalVisitThreshold).foreachRDD( rdd => {
+      //异常次数输出给open-falcon做前端展示
+      val abnormalIPCounts = rdd.count()
+      val ls = new ArrayList[Any]()
+      val abnormalIPCountsJson = Pack.pack(endpoint, metric10, step, abnormalIPCounts, counterType,tags)
+      ls.add(abnormalIPCountsJson)
+      Sender.sender(ls, url)
+
+      //ip详单保存到数据库
       rdd.foreachPartition{
         data => {
           val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
@@ -354,7 +368,8 @@ object NginxFlowAnalysis {
     })
 
     /**
-      * 各省用户数（笛卡尔乘积比较耗cpu，暂时没想到好方法）
+      * 各省用户数（笛卡尔乘积数据库大的时候比较耗cpu，暂时没想到好方法）
+      * 记录保存到数据库
       */
     if (aggregateProvinceFlag) {
       ipRecords.map(x => (IpToLong.IPv4ToLong(x._1.trim),x._2))

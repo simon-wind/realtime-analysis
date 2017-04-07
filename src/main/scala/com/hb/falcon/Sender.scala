@@ -5,8 +5,8 @@ import java.util
 import javax.xml.ws.http.HTTPException
 
 import org.apache.http.client.methods.HttpPost
-import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.DefaultHttpClient
 
 /**
   * Created by Simon on 2017/3/1.

@@ -24,13 +24,6 @@
 
 package consumer.kafka;
 
-import java.io.IOException;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
-import java.nio.channels.UnresolvedAddressException;
-import java.util.HashMap;
-import java.util.Map;
-
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.api.PartitionOffsetRequestInfo;
@@ -38,9 +31,15 @@ import kafka.common.TopicAndPartition;
 import kafka.javaapi.FetchResponse;
 import kafka.javaapi.OffsetRequest;
 import kafka.javaapi.consumer.SimpleConsumer;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.nio.channels.UnresolvedAddressException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class KafkaUtils {
 

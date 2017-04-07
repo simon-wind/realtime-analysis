@@ -24,15 +24,15 @@
 
 package consumer.kafka;
 
-import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
-import java.util.List;
-import java.util.Map;
-
 import org.apache.curator.framework.CuratorFramework;
 import org.json.simple.JSONValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("serial")
 public class DynamicBrokersReader implements Serializable {

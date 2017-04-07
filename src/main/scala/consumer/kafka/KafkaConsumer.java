@@ -24,12 +24,12 @@
 
 package consumer.kafka;
 
-import java.io.Serializable;
-import java.util.List;
-
 import org.apache.spark.streaming.receiver.Receiver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.Serializable;
+import java.util.List;
 
 @SuppressWarnings("serial")
 public class KafkaConsumer<E extends Serializable> implements Runnable, Serializable, AutoCloseable {

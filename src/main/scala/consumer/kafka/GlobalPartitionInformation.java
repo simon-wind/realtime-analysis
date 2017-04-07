@@ -24,14 +24,10 @@
 
 package consumer.kafka;
 
-import java.io.Serializable;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-
 import com.google.common.base.Objects;
+
+import java.io.Serializable;
+import java.util.*;
 
 @SuppressWarnings("serial")
 public class GlobalPartitionInformation implements Iterable<Partition>,Serializable {

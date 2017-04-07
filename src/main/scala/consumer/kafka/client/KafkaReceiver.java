@@ -18,19 +18,14 @@
 
 package consumer.kafka.client;
 
-import java.io.Serializable;
-import java.util.Properties;
-
+import consumer.kafka.*;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.receiver.Receiver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import consumer.kafka.KafkaConfig;
-import consumer.kafka.KafkaConsumer;
-import consumer.kafka.KafkaMessageHandler;
-import consumer.kafka.MessageAndMetadata;
-import consumer.kafka.ZkState;
+import java.io.Serializable;
+import java.util.Properties;
 
 
 @SuppressWarnings("serial")

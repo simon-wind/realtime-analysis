@@ -24,9 +24,9 @@
 
 package consumer.kafka;
 
-import java.io.Serializable;
-
 import com.google.common.base.Objects;
+
+import java.io.Serializable;
 
 @SuppressWarnings("serial")
 public class Partition implements Serializable {

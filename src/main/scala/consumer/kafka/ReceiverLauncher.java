@@ -18,16 +18,8 @@
 
 package consumer.kafka;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-
+import consumer.kafka.client.KafkaRangeReceiver;
+import consumer.kafka.client.KafkaReceiver;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.StreamingContext;
 import org.apache.spark.streaming.api.java.JavaDStream;
@@ -36,8 +28,9 @@ import org.apache.spark.streaming.dstream.DStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import consumer.kafka.client.KafkaRangeReceiver;
-import consumer.kafka.client.KafkaReceiver;
+import java.io.Serializable;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @SuppressWarnings("serial")
 public class ReceiverLauncher implements Serializable {
