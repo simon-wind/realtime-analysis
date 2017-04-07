@@ -13,7 +13,7 @@ object IPMapping {
   def getIpMapping(fileName:String) = {
     val IPArray = new ArrayBuffer[IPRecord]()
     val inputStream = IPMapping.getClass.getResourceAsStream(fileName)
-    val bufferReader = new BufferedReader(new InputStreamReader(inputStream))
+    val bufferReader = new BufferedReader(new InputStreamReader(inputStream,"UTF-8"))
     var line : String = null
     try {
       line = bufferReader.readLine()
