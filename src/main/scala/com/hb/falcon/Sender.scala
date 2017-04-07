@@ -26,7 +26,7 @@ object Sender {
     val client = new DefaultHttpClient
 
     try {
-      val responce = client.execute(post)
+      client.execute(post)
     } catch {
       case e:HTTPException => e.printStackTrace()
       case e:IOException  => e.printStackTrace()

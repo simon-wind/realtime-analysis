@@ -12,6 +12,11 @@ class IPRecord extends java.io.Serializable{
   private var locProc : String = ""
   private var isForeign : Boolean = false
 
+  /**
+    * 初始化IP段和归属城市的对应关系
+    * @param lineText  Ip Record
+    * @return Boolean
+    */
   def updateIPRecord(lineText:String) = {
 
     val lineSplitArray = lineText.split(IP_SEP)
@@ -35,6 +40,11 @@ class IPRecord extends java.io.Serializable{
     }
   }
 
+  /**
+    * 判断Ip是否属于该IPRecord IP段
+    * @param ip 整数型Ip
+    * @return  Boolean
+    */
   def isIPMatch(ip:Long) = {
     if (ip >= ipBegin && ip <= ipEnd ) true else false
   }

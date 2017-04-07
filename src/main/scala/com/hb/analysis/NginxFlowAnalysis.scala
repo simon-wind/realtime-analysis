@@ -17,7 +17,7 @@ import com.clearspring.analytics.stream.cardinality.HyperLogLogPlus
 import com.hb.falcon.{Pack, Sender}
 import com.hb.model.{IPMapping, IpToLong, LocationInfo}
 import com.hb.pool.ConnectionPool
-import com.hb.utils.Pencentile
+import com.hb.utils.Num
 
 
 /**
@@ -55,7 +55,7 @@ object NginxFlowAnalysis {
     val calendar = Calendar.getInstance()
     val hh = calendar.get(Calendar.HOUR_OF_DAY)
     val mm = calendar.get(Calendar.MINUTE)
-    if (hh == 14 && mm == 30 ) {
+    if (hh == 0 && mm == 0 ) {
       val hll = new HyperLogLogPlus(14)
       for (value <- values) { hll.offer(value) }
       Option(hll)
@@ -256,10 +256,10 @@ object NginxFlowAnalysis {
         val arrRecords = partitionRecords.toArray
         if (arrRecords.length > 0) {
           val ls = new ArrayList[Any]()
-          val pen99th = Pencentile.percentile(arrRecords, percentile1)
-          val pen95th = Pencentile.percentile(arrRecords, percentile2)
-          val pen75th = Pencentile.percentile(arrRecords, percentile3)
-          val pen50th = Pencentile.percentile(arrRecords, percentile4)
+          val pen99th = Num.percentile(arrRecords, percentile1)
+          val pen95th = Num.percentile(arrRecords, percentile2)
+          val pen75th = Num.percentile(arrRecords, percentile3)
+          val pen50th = Num.percentile(arrRecords, percentile4)
 
           val pen99thJson = Pack.pack(endpoint, metric5, step, pen99th, counterType,tags)
           val pen95thJson = Pack.pack(endpoint, metric6, step, pen95th, counterType,tags)

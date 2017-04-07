@@ -10,6 +10,11 @@ import scala.collection.mutable.ArrayBuffer
   * Created by Simon on 2017/3/30.
   */
 object IPMapping {
+  /**
+    * 生成IP段和城市的映射关系
+    * @param fileName ip2city 文件，每行对应一个IPRecord
+    * @return IPrecord列表
+    */
   def getIpMapping(fileName:String) = {
     val IPArray = new ArrayBuffer[IPRecord]()
     val inputStream = IPMapping.getClass.getResourceAsStream(fileName)

@@ -19,7 +19,7 @@ import com.hb.pool.ConnectionPool
 import consumer.kafka.ProcessedOffsetManager
 import consumer.kafka.ReceiverLauncher
 import com.hb.falcon.{Pack, Sender}
-import com.hb.utils.Pencentile
+import com.hb.utils.Num
 
 /**
   * Created by Simon on 2017/2/23.
@@ -256,10 +256,10 @@ object NginxAnalysisTest {
         val arrRecords = partitionRecords.toArray
         if (arrRecords.length > 0) {
           val ls = new util.ArrayList[Any]()
-          val pen99th = Pencentile.percentile(arrRecords, percentile1)
-          val pen95th = Pencentile.percentile(arrRecords, percentile2)
-          val pen75th = Pencentile.percentile(arrRecords, percentile3)
-          val pen50th = Pencentile.percentile(arrRecords, percentile4)
+          val pen99th = Num.percentile(arrRecords, percentile1)
+          val pen95th = Num.percentile(arrRecords, percentile2)
+          val pen75th = Num.percentile(arrRecords, percentile3)
+          val pen50th = Num.percentile(arrRecords, percentile4)
 
           val pen99thJson = Pack.pack(endpoint, metric5, step, pen99th, counterType,tags)
           val pen95thJson = Pack.pack(endpoint, metric6, step, pen95th, counterType,tags)
