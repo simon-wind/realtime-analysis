@@ -2,9 +2,7 @@ package com.hb.analysis
 
 import java.io.File
 import java.io.FileInputStream
-import java.util.ArrayList
-import java.util.Date
-import java.util.Properties
+import java.util.{ArrayList, Calendar, Date, Properties}
 import java.text.SimpleDateFormat
 
 import org.apache.log4j.Logger
@@ -13,11 +11,9 @@ import org.apache.spark.SparkConf
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.Seconds
 import org.apache.spark.streaming.StreamingContext
-
 import consumer.kafka.ReceiverLauncher
 import consumer.kafka.ProcessedOffsetManager
 import com.clearspring.analytics.stream.cardinality.HyperLogLogPlus
-
 import com.hb.falcon.{Pack, Sender}
 import com.hb.model.{IPMapping, IpToLong, LocationInfo}
 import com.hb.pool.ConnectionPool
@@ -56,17 +52,26 @@ object NginxFlowAnalysis {
     * 更新HyperLogLogPlus对象
     */
   val updateCardinal = (values: Seq[String], state: Option[HyperLogLogPlus]) => {
-    if (state.nonEmpty) {
-      val hll = state.get
-      for (value <- values) { hll.offer(value) }
-      Option(hll)
-    } else {
+    val calendar = Calendar.getInstance()
+    val hh = calendar.get(Calendar.HOUR_OF_DAY)
+    val mm = calendar.get(Calendar.MINUTE)
+    if (hh == 14 && mm == 30 ) {
       val hll = new HyperLogLogPlus(14)
       for (value <- values) { hll.offer(value) }
       Option(hll)
     }
+    else {
+      if (state.nonEmpty) {
+        val hll = state.get
+        for (value <- values) { hll.offer(value) }
+        Option(hll)
+      } else {
+        val hll = new HyperLogLogPlus(14)
+        for (value <- values) { hll.offer(value) }
+        Option(hll)
+      }
+    }
   }
-
 
 
   def main(args: Array[String]): Unit = {
