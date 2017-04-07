@@ -1,7 +1,7 @@
 //每省用户数
-create table uv_province (
+create table uv_province_test (
 time DATETIME,
-province varchar(20),
+province varchar(50),
 uv int,
 id INT(20) not null AUTO_INCREMENT,
 primary key (id)

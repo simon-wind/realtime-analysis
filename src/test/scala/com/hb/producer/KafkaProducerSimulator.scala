@@ -1,4 +1,4 @@
-package producer
+package com.hb.producer
 
 /**
   * Created by Simon on 2017/2/24.
