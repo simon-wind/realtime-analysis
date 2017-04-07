@@ -1,4 +1,4 @@
-# spark real time-analysis
+# spark real-time analysis
 Spark version v2.0.0  
 Kafka version v0.9.0.1  
 
@@ -36,7 +36,7 @@ val filterMessages = messages.map { x => new String(x.getPayload) }
 ## Algorithms
 ### 1:百分位的计算 
 
-目前采用的是快排在求相应百分位的值，数据量很大的时候可能会有瓶颈。可以考虑采用分治法求第K大个数做粗略估计 
+目前采用的是快排再求相应百分位的值，数据量很大的时候可能会有瓶颈。可以考虑采用分治法求第K大个数，做粗略估计 
 
 ```
 /**
@@ -144,7 +144,7 @@ filterMessages.map(x => (null, x(3))).updateStateByKey(updateCardinal)
         
 4：每分钟用户数（精确统计，distinct去重）
         
-5：总用户数（HyperLogLog基数估计）
+5：每天实时用户数（HyperLogLog基数估计）
         
 6: 99th,95th,75,50th的百分位时延
         
