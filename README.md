@@ -39,8 +39,8 @@ val filterMessages = messages.map { x => new String(x.getPayload) }
 目前采用的是快排再求相应百分位的值，数据量很大的时候可能会有瓶颈。可以考虑采用分治法求第K大个数，做粗略估计 
 
 ```
-/**
-    * @param xs 输入数组
+  /**
+    * @param arr 输入数组
     * @return 快速排序后的数组
     */
   def quickSort(arr: Array[Double]): Array[Double] = {
