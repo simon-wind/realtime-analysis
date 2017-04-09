@@ -41,7 +41,7 @@ object ConnectionPool {
 
   /**
     * 单例模式获取连接池对象
-    * @return MysqlManager 连接池对象
+    * @return ConnectionPool 连接池对象
     */
   def getConnectionPool (prop : Properties) : ConnectionPool = {
     synchronized{
