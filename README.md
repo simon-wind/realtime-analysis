@@ -154,7 +154,7 @@ filterMessages.map(x => (null, x(3))).updateStateByKey(updateCardinal)
 
 # Defect
 
-1： 多个个job每个job每分钟都会跟falcon的接口建立HTTP连接,链接过于频繁。  
+1： 多个job每个job每分钟都会跟falcon的接口建立HTTP连接,链接过于频繁。  
 
 2： 每60秒生成一个RDD，计算一次指标。不是按访问时间计算的指标，统计有误差。改进方法：从日志里面获取访问时间作为key再groupByKey进行统计，存储到hbase，延迟日志的补算可采用hbase的counter。如果用mysql做补算，要先查询，再update，性能会很差，不推荐。  
 
