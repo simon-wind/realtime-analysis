@@ -45,7 +45,7 @@ val filterMessages = messages.map { x => new String(x.getPayload) }
     */
   def quickSort(arr: Array[Double]): Array[Double] = {
     if (arr.length <= 1)
-      xs
+      arr
     else {
       val index = arr(arr.length / 2)
       Array.concat(
