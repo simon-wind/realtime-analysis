@@ -102,34 +102,40 @@ val updateCardinal = (values: Seq[String], state: Option[HyperLogLogPlus]) => {
     }
   }
   
-filterMessages.map(x => (null, x(3))).updateStateByKey(updateCardinal)
-    .map(x => x._2.cardinality).foreachRDD(rdd => {
+ filterMessages.map(x => (null, x(3))).updateStateByKey(updateCardinal)
+      .map(x => x._2.cardinality).foreachRDD(rdd => {
 
-    rdd.foreach { x =>
-    val ls = new ArrayList[Any]
-    val uvTotalJson = Pack.pack(endpoint, metric9, step, x, counterType, tags)
-    ls.add(uvTotalJson)
-    //发送给open-falcon agent
-    Sender.sender(ls, url)
+      rdd.foreach { x =>
+        val ls = new ArrayList[Any]
+        val uvTotalJson = Pack.pack(endpoint, metric9, step, x, counterType, tags)
+        ls.add(uvTotalJson)
+        //发送给open-falcon agent
+        Sender.sender(ls, url)
 
-    // 保存数据库
-    val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
-    conn.setAutoCommit(false)
-    val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-    val currentTimestamp = sdf.format(new Date())
+        // 保存数据库
+        val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
+        conn.setAutoCommit(false)
+        val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+        val currentTimestamp = sdf.format(new Date())
 
-    val sql = "insert into uv_day(time,uv) values (?,?)"
-    val preparedStatement = conn.prepareStatement(sql)
-    preparedStatement.setString(1, currentTimestamp)
-    preparedStatement.setLong(2, x.toLong)
-    preparedStatement.addBatch()
-    preparedStatement.executeBatch()
-    conn.commit()
-    preparedStatement.clearBatch()
-    conn.close()
+        try {
+          val sql = "insert into uv_day(time,uv) values (?,?)"
+          val preparedStatement = conn.prepareStatement(sql)
+          preparedStatement.setString(1, currentTimestamp)
+          preparedStatement.setLong(2, x.toLong)
+          preparedStatement.addBatch()
+          preparedStatement.executeBatch()
+          conn.commit()
+          preparedStatement.clearBatch()
+        } catch {
+          case e:Exception => e.printStackTrace()
+        } finally {
+          conn.close()
+        }
+      }
     }
-}
-)
+    )
+
 ```
 
 # Output 
