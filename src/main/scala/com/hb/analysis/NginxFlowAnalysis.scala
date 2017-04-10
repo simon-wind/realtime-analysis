@@ -144,7 +144,7 @@ object NginxFlowAnalysis {
     propC3p0.load(inC3p0)
     val propC3p0BroadCast = ssc.sparkContext.broadcast(propC3p0)
 
-
+    //广播IP段和city的对应关系
     val ipMap = IPMapping.getIpMapping(ip_file)
     val ipMapBroadCast = ssc.sparkContext.broadcast(ipMap)
 
@@ -405,7 +405,7 @@ object NginxFlowAnalysis {
             val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
             conn.setAutoCommit(false)
 
-            val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+            val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm")
             val currentTimestamp = sdf.format(new Date())
 
             try {
@@ -432,7 +432,6 @@ object NginxFlowAnalysis {
         )
     }
 
-    //消费完成手动提交zookeeper的offset
     ProcessedOffsetManager.persists(partitonOffset_stream, props)
     logger.info("persist current offset in zookeeper cluster")
 
