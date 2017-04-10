@@ -14,11 +14,11 @@ import org.apache.spark.streaming.StreamingContext
 import consumer.kafka.ReceiverLauncher
 import consumer.kafka.ProcessedOffsetManager
 import com.clearspring.analytics.stream.cardinality.HyperLogLogPlus
+
 import com.hb.falcon.{Pack, Sender}
 import com.hb.model.{IPMapping, IpToLong, LocationInfo}
 import com.hb.pool.ConnectionPool
 import com.hb.utils.Num
-
 
 /**
   * Created by Simon on 2017/2/23.
@@ -31,7 +31,7 @@ object NginxFlowAnalysis {
   private val step = 60
   private val counterType = "GAUGE"
   private val tags = "_Minute"
-  private val ip_file = "/ipCity.properties"
+  private val ip_file = "/resources/ipCity.properties"
 
   //计算指标
   private val metric1 = "pv_min"

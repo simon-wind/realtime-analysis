@@ -32,7 +32,7 @@ object NginxAnalysisTest {
   private val step = 60
   private val counterType = "GAUGE"
   private val tags = "_Minute"
-  private val ip_file = "/ipCity.properties"
+  private val ip_file = "/resources/ipCity.properties"
 
   //计算指标
   private val metric1 = "pv_min"
