@@ -206,44 +206,50 @@ object NginxFlowAnalysis {
       val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
       conn.setAutoCommit(false)
 
-      val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+      val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm")
       val currentTimestamp = sdf.format(new Date())
 
-      val sql = "insert into requests_minute(time,pv_minute,errs_minute,errs_400,errs_404,errs_405,errs_408,errs_499,errs_502,errs_503,uv_minute) values (?,?,?,?,?,?,?,?,?,?,?)"
-      val preparedStatement = conn.prepareStatement(sql)
-      preparedStatement.setString(1, currentTimestamp)
-      preparedStatement.setLong(2, counts)
-      preparedStatement.setLong(3, errCounts)
+      try {
+        val sql = "insert into requests_minute(time,pv_minute,errs_minute,errs_400,errs_404,errs_405,errs_408,errs_499,errs_502,errs_503,uv_minute) values (?,?,?,?,?,?,?,?,?,?,?)"
+        val preparedStatement = conn.prepareStatement(sql)
+        preparedStatement.setString(1, currentTimestamp)
+        preparedStatement.setLong(2, counts)
+        preparedStatement.setLong(3, errCounts)
 
-      diffErrors.foreach{ errs => {
-        errs._1.toInt match {
-          case 400  => preparedStatement.setLong(4, errs._2)
-          case 404  => preparedStatement.setLong(5, errs._2)
-          case 405  => preparedStatement.setLong(6, errs._2)
-          case 408  => preparedStatement.setLong(7, errs._2)
-          case 499  => preparedStatement.setLong(8, errs._2)
-          case 502  => preparedStatement.setLong(9, errs._2)
-          case 503  => preparedStatement.setLong(10, errs._2)
-          case _    =>
+        diffErrors.foreach{ errs => {
+          errs._1.toInt match {
+            case 400  => preparedStatement.setLong(4, errs._2)
+            case 404  => preparedStatement.setLong(5, errs._2)
+            case 405  => preparedStatement.setLong(6, errs._2)
+            case 408  => preparedStatement.setLong(7, errs._2)
+            case 499  => preparedStatement.setLong(8, errs._2)
+            case 502  => preparedStatement.setLong(9, errs._2)
+            case 503  => preparedStatement.setLong(10, errs._2)
+            case _    =>
+          }
+        }
+        }
+
+        val errColumnMap : Map[Int,Int] = Map (400 -> 4, 404 -> 5, 405 -> 6, 408 -> 7, 499 -> 8, 502 -> 9, 503 -> 10)
+        val errAllSet : Set[Int]= Set(400,404,405,408,499,502,503)
+        val errGotSet = diffErrors.map(x => x._1.toInt).toSet
+        val errLostSet = errAllSet -- errGotSet
+        //如果记录里面没有相关错误码,error次数置0
+        for (key <- errLostSet) {preparedStatement.setLong(errColumnMap.get(key).get,0)}
+
+        preparedStatement.setLong(11, uniqueVisitor)
+
+        preparedStatement.addBatch()
+        preparedStatement.executeBatch()
+        conn.commit()
+        preparedStatement.clearBatch()
+        } catch {
+          case e:Exception => e.printStackTrace()
+        } finally {
+          conn.close()
         }
       }
-      }
-      val errColumnMap : Map[Int,Int] = Map (400 -> 4, 404 -> 5, 405 -> 6, 408 -> 7, 499 -> 8, 502 -> 9, 503 -> 10)
-      val errAllSet : Set[Int]= Set(400,404,405,408,499,502,503)
-      val errGotSet = diffErrors.map(x => x._1.toInt).toSet
-      val errLostSet = errAllSet -- errGotSet
-      //如果记录里面没有相关错误码,error次数置0
-      for (key <- errLostSet) {preparedStatement.setLong(errColumnMap.get(key).get,0)}
-
-      preparedStatement.setLong(11, uniqueVisitor)
-
-      preparedStatement.addBatch()
-      preparedStatement.executeBatch()
-      conn.commit()
-      preparedStatement.clearBatch()
-      conn.close()
-    }
-    )
+      )
 
     filterMessages.foreachRDD(rdd => {
       /**
@@ -279,20 +285,24 @@ object NginxFlowAnalysis {
 
           val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm")
           val currentTimestamp = sdf.format(new Date())
+          try {
+            val sql = "insert into latency(time,pen99th,pen95th,pen75th,pen50th) values (?,?,?,?,?)"
+            val preparedStatement = conn.prepareStatement(sql)
+            preparedStatement.setString(1, currentTimestamp)
+            preparedStatement.setDouble(2, pen99th)
+            preparedStatement.setDouble(3, pen95th)
+            preparedStatement.setDouble(4, pen75th)
+            preparedStatement.setDouble(5, pen50th)
 
-          val sql = "insert into latency(time,pen99th,pen95th,pen75th,pen50th) values (?,?,?,?,?)"
-          val preparedStatement = conn.prepareStatement(sql)
-          preparedStatement.setString(1, currentTimestamp)
-          preparedStatement.setDouble(2, pen99th)
-          preparedStatement.setDouble(3, pen95th)
-          preparedStatement.setDouble(4, pen75th)
-          preparedStatement.setDouble(5, pen50th)
-
-          preparedStatement.addBatch()
-          preparedStatement.executeBatch()
-          conn.commit()
-          preparedStatement.clearBatch()
-          conn.close()
+            preparedStatement.addBatch()
+            preparedStatement.executeBatch()
+            conn.commit()
+            preparedStatement.clearBatch()
+          } catch {
+            case e:Exception => e.printStackTrace()
+          } finally {
+            conn.close()
+          }
         }
       }
     }
@@ -304,19 +314,20 @@ object NginxFlowAnalysis {
     filterMessages.map(x => (null, x(3))).updateStateByKey(updateCardinal)
       .map(x => x._2.cardinality).foreachRDD(rdd => {
 
-        rdd.foreach { x =>
-          val ls = new ArrayList[Any]
-          val uvTotalJson = Pack.pack(endpoint, metric9, step, x, counterType, tags)
-          ls.add(uvTotalJson)
-          //发送给open-falcon agent
-          Sender.sender(ls, url)
+      rdd.foreach { x =>
+        val ls = new ArrayList[Any]
+        val uvTotalJson = Pack.pack(endpoint, metric9, step, x, counterType, tags)
+        ls.add(uvTotalJson)
+        //发送给open-falcon agent
+        Sender.sender(ls, url)
 
-          // 保存数据库
-          val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
-          conn.setAutoCommit(false)
-          val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-          val currentTimestamp = sdf.format(new Date())
+        // 保存数据库
+        val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
+        conn.setAutoCommit(false)
+        val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+        val currentTimestamp = sdf.format(new Date())
 
+        try {
           val sql = "insert into uv_day(time,uv) values (?,?)"
           val preparedStatement = conn.prepareStatement(sql)
           preparedStatement.setString(1, currentTimestamp)
@@ -325,7 +336,11 @@ object NginxFlowAnalysis {
           preparedStatement.executeBatch()
           conn.commit()
           preparedStatement.clearBatch()
+        } catch {
+          case e:Exception => e.printStackTrace()
+        } finally {
           conn.close()
+        }
       }
     }
     )
@@ -355,19 +370,24 @@ object NginxFlowAnalysis {
           val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
           val currentTimestamp = sdf.format(new Date())
 
-          val sql = "insert into abnormal_ip(time,ip,frequency) values (?,?,?)"
-          val preparedStatement = conn.prepareStatement(sql)
-          data.foreach(r => {
-            preparedStatement.setString(1, currentTimestamp)
-            preparedStatement.setString(2, r._1.toString)
-            preparedStatement.setInt(3, r._2)
-            preparedStatement.addBatch()
-          })
+          try {
+            val sql = "insert into abnormal_ip(time,ip,frequency) values (?,?,?)"
+            val preparedStatement = conn.prepareStatement(sql)
+            data.foreach(r => {
+              preparedStatement.setString(1, currentTimestamp)
+              preparedStatement.setString(2, r._1.toString)
+              preparedStatement.setInt(3, r._2)
+              preparedStatement.addBatch()
+            })
 
-          preparedStatement.executeBatch()
-          conn.commit()
-          preparedStatement.clearBatch()
-          conn.close()
+            preparedStatement.executeBatch()
+            conn.commit()
+            preparedStatement.clearBatch()
+          } catch {
+            case e:Exception => e.printStackTrace()
+          } finally {
+            conn.close()
+          }
         }
       }
     })
@@ -388,25 +408,29 @@ object NginxFlowAnalysis {
             val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
             val currentTimestamp = sdf.format(new Date())
 
-            val sql = "insert into uv_province(time,province,uv) values (?,?,?)"
-            val preparedStatement = conn.prepareStatement(sql)
-            data.foreach(r => {
-              preparedStatement.setString(1, currentTimestamp)
-              preparedStatement.setString(2, r._1.toString)
-              preparedStatement.setInt(3, r._2)
-              preparedStatement.addBatch()
-            })
+            try {
+              val sql = "insert into uv_province(time,province,uv) values (?,?,?)"
+              val preparedStatement = conn.prepareStatement(sql)
+              data.foreach(r => {
+                preparedStatement.setString(1, currentTimestamp)
+                preparedStatement.setString(2, r._1.toString)
+                preparedStatement.setInt(3, r._2)
+                preparedStatement.addBatch()
+              })
 
-            preparedStatement.executeBatch()
-            conn.commit()
-            preparedStatement.clearBatch()
-            conn.close()
+              preparedStatement.executeBatch()
+              conn.commit()
+              preparedStatement.clearBatch()
+            } catch {
+              case e:Exception => e.printStackTrace()
+            } finally {
+              conn.close()
+            }
           }
         }
       }
         )
     }
-
 
     //消费完成手动提交zookeeper的offset
     ProcessedOffsetManager.persists(partitonOffset_stream, props)

@@ -7,18 +7,18 @@ package com.hb.utils
 object Num {
 
   /**
-    * @param xs 输入数组
+    * @param arr 输入数组
     * @return 快速排序后的数组
     */
-  def quickSort(xs: Array[Double]): Array[Double] = {
-    if (xs.length <= 1)
-      xs
+  def quickSort(arr: Array[Double]): Array[Double] = {
+    if (arr.length <= 1)
+      arr
     else {
-      val index = xs(xs.length / 2)
+      val index = arr(arr.length / 2)
       Array.concat(
-        quickSort(xs filter (index >)),
-        xs filter (_ == index),
-        quickSort(xs filter (index <))
+        quickSort(arr filter (index >)),
+        arr filter (_ == index),
+        quickSort(arr filter (index <))
       )
     }
   }
