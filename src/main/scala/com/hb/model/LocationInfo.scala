@@ -14,11 +14,11 @@ object LocationInfo {
     */
   def findLocation(arrBuffer: ArrayBuffer[IPRecord],ipInt : Long) = {
     var loc : String = null
-    var foundIt : Boolean = false
-    for (elems <- arrBuffer if !foundIt ){
+    var foundLocation : Boolean = false
+    for (elems <- arrBuffer if !foundLocation ){
       if (elems.isIPMatch(ipInt)){
         loc = elems.getLocation
-        foundIt = true
+        foundLocation = true
       }
     }
     loc

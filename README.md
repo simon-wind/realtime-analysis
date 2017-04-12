@@ -4,8 +4,7 @@ Kafka version v0.9.0.1
 
 # Introduction
 flume采集日志传输到kafka，再通过spark-streaming进行实时分析，得到pv，uv，用户分布图等指标，结果保存两份。一份通过http接口发送给open-falcon做监控和告警，一部分存到数据库。
-
-# Authors
+  # Authors
 |Email Address        | Name   |  
 |simonwindwf@gmail.com| Simon  |
 

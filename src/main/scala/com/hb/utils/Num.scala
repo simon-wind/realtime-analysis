@@ -1,5 +1,6 @@
 package com.hb.utils
 
+
 /**
   * Created by Simon on 2017/2/27.
   */
@@ -39,3 +40,4 @@ object Num {
     }
   }
 }
+
