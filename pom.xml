@@ -142,8 +142,6 @@
         <directory>src/main/scala/</directory>
         <excludes>
           <exclude>META-INF/*.DSA</exclude>
-          <exclude>META-INF/*.RSA</exclude>
-          <exclude>META-INF/*.SF</exclude>
         </excludes>
       </resource>
     </resources>
