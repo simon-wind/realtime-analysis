@@ -436,7 +436,9 @@ object NginxFlowAnalysis {
 
       ssc
     }
-    val ssc = StreamingContext.getOrCreate(checkpointDirectory,() => createContext(logProperties,configProperties,dbProperties))
+    //broadcast value无法从checkpoint恢复，只能自己序列化保存updateStateByKey的状态，用于重启恢复
+    //val ssc = StreamingContext.getOrCreate(checkpointDirectory,() => createContext(logProperties,configProperties,dbProperties))
+    val ssc = createContext(logProperties,configProperties,dbProperties)
 
     ssc.start()
     ssc.awaitTermination()
