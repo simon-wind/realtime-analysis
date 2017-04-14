@@ -74,7 +74,7 @@ val filterMessages = messages.map { x => new String(x.getPayload) }
 
 ### 2：每天用户数
 
-采用updateStateByKey算法保存HLL对象，并且在每天0点的时候重新计数
+采用updateStateByKey算子保存HLL对象，并且在每天0点的时候重新计数
 
   
 ```
@@ -103,40 +103,55 @@ val updateCardinal = (values: Seq[String], state: Option[HyperLogLogPlus]) => {
   //计算结果实时UV只有一条数据可不用批量提交 
  filterMessages.map(x => (null, x(3))).updateStateByKey(updateCardinal)
       .map(x => x._2.cardinality).foreachRDD(rdd => {
-
-      rdd.foreach { x =>
-        val ls = new ArrayList[Any]
-        val uvTotalJson = Pack.pack(endpoint, metric9, step, x, counterType, tags)
-        ls.add(uvTotalJson)
-        //发送给open-falcon agent
-        Sender.sender(ls, url)
-
-        // 保存数据库
-        val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
-        conn.setAutoCommit(false)
-        val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-        val currentTimestamp = sdf.format(new Date())
-
-        try {
-          val sql = "insert into uv_day(time,uv) values (?,?)"
-          val preparedStatement = conn.prepareStatement(sql)
-          preparedStatement.setString(1, currentTimestamp)
-          preparedStatement.setLong(2, x.toLong)
-          preparedStatement.addBatch()
-          preparedStatement.executeBatch()
-          conn.commit()
-          preparedStatement.clearBatch()
-        } catch {
-          case e:SQLException  => conn.rollback()
-          case e:Exception => e.printStackTrace()
-        } finally {
-          conn.close()
-        }
-      }
+    ....(省略)
     }
     )
+```
+
+### 3:各省用户数
+
+计算为笛卡尔乘积，待改进
+
 
 ```
+ if (aggregateProvinceFlag) {
+   ipRecords.map(x => (IpToLong.IPv4ToLong(x._1.trim),x._2))
+   .map(x => (LocationInfo.findLocation(ipMapBroadCast.value,x._1),x._2))
+   .reduceByKey(_+_) foreachRDD( rdd => {
+    rdd.foreachPartition { data =>
+       if (data != null) {
+          val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
+          conn.setAutoCommit(false)
+
+          val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm")
+          val currentTimestamp = sdf.format(new Date())
+
+          try {
+             val sql = "insert into uv_province(time,province,uv) values (?,?,?)"
+             val preparedStatement = conn.prepareStatement(sql)
+                data.foreach(r => {
+                  preparedStatement.setString(1, currentTimestamp)
+                  preparedStatement.setString(2, r._1.toString)
+                  preparedStatement.setInt(3, r._2)
+                  preparedStatement.addBatch()
+                })
+
+             preparedStatement.executeBatch()
+             conn.commit()
+             preparedStatement.clearBatch()
+          } catch {
+             case e:SQLException  => conn.rollback()
+             case e:Exception => e.printStackTrace()
+          } finally {
+             conn.close()
+            }
+          }
+          }
+        }
+          )
+      }
+```
+
 
 # Output 
 

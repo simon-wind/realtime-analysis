@@ -370,7 +370,7 @@ object NginxFlowAnalysis {
             val conn = ConnectionPool.getConnectionPool(propC3p0BroadCast.value).getConnection
             conn.setAutoCommit(false)
 
-            val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+            val sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm")
             val currentTimestamp = sdf.format(new Date())
 
             try {
