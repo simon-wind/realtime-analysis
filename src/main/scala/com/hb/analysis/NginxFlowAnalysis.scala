@@ -1,6 +1,7 @@
 package com.hb.analysis
 
 import java.io.{File, FileInputStream}
+import java.sql.SQLException
 import java.util.{ArrayList, Calendar, Date, Properties}
 import java.text.SimpleDateFormat
 
@@ -13,7 +14,6 @@ import org.apache.spark.streaming.StreamingContext
 import consumer.kafka.ReceiverLauncher
 import consumer.kafka.ProcessedOffsetManager
 import com.clearspring.analytics.stream.cardinality.HyperLogLogPlus
-
 import com.hb.falcon.{Pack, Sender}
 import com.hb.model.{IPMapping, IpToLong, LocationInfo}
 import com.hb.pool.ConnectionPool
@@ -81,11 +81,11 @@ object NginxFlowAnalysis {
     val Array(logProperties,configProperties,dbProperties) = args
     val checkpointDirectory = "analysisCheckpoint"
 
-    def createContext(logConfig : String,applictionConfig : String, dbConfig : String) = {
+    def createContext(logConfig : String,applicationConfig : String, dbConfig : String) = {
       PropertyConfigurator.configure(logConfig)
 
       //获取应用相关配置
-      val in= new FileInputStream(new File(applictionConfig))
+      val in= new FileInputStream(new File(applicationConfig))
       val properties = new Properties
       properties.load(in)
 
@@ -244,6 +244,7 @@ object NginxFlowAnalysis {
           conn.commit()
           preparedStatement.clearBatch()
         } catch {
+          case e:SQLException  => conn.rollback()
           case e:Exception => e.printStackTrace()
         } finally {
           conn.close()
@@ -299,6 +300,7 @@ object NginxFlowAnalysis {
               conn.commit()
               preparedStatement.clearBatch()
             } catch {
+              case e:SQLException  => conn.rollback()
               case e:Exception => e.printStackTrace()
             } finally {
               conn.close()
@@ -337,6 +339,7 @@ object NginxFlowAnalysis {
             conn.commit()
             preparedStatement.clearBatch()
           } catch {
+            case e:SQLException  => conn.rollback()
             case e:Exception => e.printStackTrace()
           } finally {
             conn.close()
@@ -384,7 +387,10 @@ object NginxFlowAnalysis {
               conn.commit()
               preparedStatement.clearBatch()
             } catch {
-              case e:Exception => e.printStackTrace()
+              case e:Exception => {
+                case e:SQLException  => conn.rollback()
+                case e:Exception => e.printStackTrace()
+              }
             } finally {
               conn.close()
             }
@@ -422,6 +428,7 @@ object NginxFlowAnalysis {
                 conn.commit()
                 preparedStatement.clearBatch()
               } catch {
+                case e:SQLException  => conn.rollback()
                 case e:Exception => e.printStackTrace()
               } finally {
                 conn.close()

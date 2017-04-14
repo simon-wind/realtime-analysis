@@ -127,6 +127,7 @@ val updateCardinal = (values: Seq[String], state: Option[HyperLogLogPlus]) => {
           conn.commit()
           preparedStatement.clearBatch()
         } catch {
+          case e:SQLException  => conn.rollback()
           case e:Exception => e.printStackTrace()
         } finally {
           conn.close()
