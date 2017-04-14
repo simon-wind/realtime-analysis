@@ -100,7 +100,7 @@ val updateCardinal = (values: Seq[String], state: Option[HyperLogLogPlus]) => {
       }
     }
   }
-  
+  //计算结果实时UV只有一条数据可不用批量提交
  filterMessages.map(x => (null, x(3))).updateStateByKey(updateCardinal)
       .map(x => x._2.cardinality).foreachRDD(rdd => {
 
