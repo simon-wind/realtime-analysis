@@ -128,7 +128,9 @@ object NginxFlowAnalysis {
           "zookeeper.port" -> zkPort,
           "kafka.topic" -> topic,
           "zookeeper.consumer.connection" -> zkAddress,
-          "kafka.consumer.id" -> group
+          "kafka.consumer.id" -> group,
+          "consumer.forcefromstart" -> "true",
+          "consumer.backpressure.enabled" -> "true"
         )
 
       val props = new java.util.Properties()
